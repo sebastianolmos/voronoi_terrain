@@ -83,7 +83,6 @@ function main() {
         0.1,
         1000
     );
-    camera.up.set(0, 0, 1);
     //camera.lookAt(0, 0, 0);  
     
     const renderer = new THREE.WebGLRenderer();
@@ -92,8 +91,11 @@ function main() {
     renderer.setPixelRatio(devicePixelRatio);
     document.body.appendChild(renderer.domElement);
     
+    camera.up.set(0, 0, 1);
     new OrbitControls(camera, renderer.domElement);
     camera.position.z = 5;
+    camera.rotation.set(0, 0, 0);
+    console.log(camera);
     
     const planeGeometry = new THREE.PlaneGeometry(world.plane.width, world.plane.height, 10, 10);
     const planeMaterial = new THREE.MeshPhongMaterial({ 
