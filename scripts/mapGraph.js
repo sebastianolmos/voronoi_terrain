@@ -1,5 +1,4 @@
-
-class MapCenter {
+export class MapCenter {
     constructor() {
         this.neighbors = [];
         this.borders = [];
@@ -15,7 +14,7 @@ class MapCenter {
     }
 }
 
-class MapEdge {
+export class MapEdge {
     constructor() {
         this.d0 = null;
         this.d1 = null;
@@ -24,7 +23,7 @@ class MapEdge {
     }
 }
 
-class MapCorner {
+export class MapCorner {
     constructor() {
         this.touches = [];
         this.protrodes = [];
@@ -39,7 +38,7 @@ class MapCorner {
     }
 }
 
-class MapGraph{
+export class MapGraph{
     constructor(diagram, sites) {
         this.polygons = [];
         this.edges = [];
@@ -51,7 +50,7 @@ class MapGraph{
     buildCenters(){
         let centers = [];
         for(let i = 0; i < this.diagram.cells.length; i++) {
-            let tmp_site = this.diagram.cells[i].sites;
+            let tmp_site = this.diagram.cells[i].site;
             let center = new MapCenter();
             center.setPosition(tmp_site.x, tmp_site.y);
             centers.push(center);
@@ -59,49 +58,71 @@ class MapGraph{
         this.polygons = centers;
     }
 
+    getRight(halfEdge) {
+        if (halfEdge.site.voronoiId == halfEdge.edge.lSite.voronoiId) {
+            return {
+                rigthSite: halfEdge.edge.rSite,
+                rightVertex: halfEdge.edge.va
+            };
+        } else {
+            return {
+                rigthSite: halfEdge.edge.lSite,
+                rightVertex: halfEdge.edge.vb
+            };
+        }
+    }
+
     build() {
         this.buildCenters();
         // Se recorren todas las celdas
         for (let i = 0; i < this.diagram.cells.length; i++) {
+            //console.log("Cell ", i);
+            //console.log(this.polygons[i].processed);
+            //console.log(this.polygons[i]);
             let cell = this.diagram.cells[i];
             // Se recorren los halfedges de la celda
-            let heLength = cell.halfedges.length;
+            let heLength = cell.halfedges.length,
                 centers = [],
                 corners = [],
                 edges = [],
                 edgesReady = [],
                 cornersReady = [],
                 prevReady = false;
-
+            
             // Primera pasada
             for (let j = 0; j < heLength; j++) {
+                //console.log("   halfedge ", j);
                 let hedge = cell.halfedges[j];
-                let tmp_edge = hedge.edge;
+                let {rigthSite, rightVertex} = this.getRight(hedge);
 
                 // Procesamiento de edges
                 
                 // SI ya fue inicializado
-                if (tmp_edge.rSite != null &&  
-                    this.polygons[tmp_edge.rSite.voronoiId].processed) 
-                {   
-                    let op_edges = this.polygons[tmp_edge.rSite.voronoiId].borders;
+                if (rigthSite != null &&  
+                    this.polygons[rigthSite.voronoiId].processed) 
+                {
+                    //console.log("   cell inited");
+                    let op_edges = this.polygons[rigthSite.voronoiId].borders;
+                    //console.log(op_edges);
                     // Recorrer los halfedges del poligono opuesto y encontrar el halfedge opuesto:
-                    for (let k = 0; k < op_edges; k++) {
-                        if (op_edges[k].d1 == this.polygons[i]){
+                    for (let k = 0; k < op_edges.length; k++) {
+                        if (op_edges[k].d1 == this.polygons[i] || op_edges[k].d0 == this.polygons[i]){
                             // Añadir el Edge encontrado
                             edges.push(op_edges[k]);
+                            //console.log("----> Edge Founded");
                         }
                     }
+                    centers.push(this.polygons[rigthSite.voronoiId])
                     edgesReady.push(true);
                 }
                 
                 // SI NO fue inicializado
-                if (!this.polygons[tmp_edge.rSite.voronoiId].processed){
+                else {
                     let edge = new MapEdge(); // Se crea un nuevo Edge
                     edge.d0 = this.polygons[i];  // Se conectan d0 y d1 al Edge
-                    if (tmp_edge.rSite != null) {
-                        edge.d1 = this.polygons[tmp_edge.rSite.voronoiId];
-                        centers.push(this.polygons[tmp_edge.rSite.voronoiId]); // Se conectan un neighbor al center actual
+                    if (rigthSite != null) {
+                        edge.d1 = this.polygons[rigthSite.voronoiId];
+                        centers.push(this.polygons[rigthSite.voronoiId]); // Se conectan un neighbor al center actual
                     }
                     edges.push(edge); // Añadir el Edge creado
                     this.edges.push(edge); // Se añade el Edge creado al arreglo genera
@@ -119,13 +140,16 @@ class MapGraph{
                 else {
                 // Si el anterior no fue inicializado:
                     // SI ya fue inicializado este corner 
-                    if (tmp_edge.rSite != null &&  
-                        this.polygons[tmp_edge.rSite.voronoiId].processed) 
+                    if (rigthSite != null &&  
+                        this.polygons[rigthSite.voronoiId].processed) 
                     {   
-                        let op_edges = this.polygons[tmp_edge.rSite.voronoiId].borders;
+                        let op_edges = this.polygons[rigthSite.voronoiId].borders;
+                        //console.log("Here");
+                        //console.log(this.polygons[i] );
+                        //console.log(op_edges);
                         // Recorrer los halfedges del poligono opuesto y encontrar el halfedge opuesto:
-                        for (let k = 0; k < op_edges; k++) {
-                            if (op_edges[k].d1 == this.polygons[i]){
+                        for (let k = 0; k < op_edges.length; k++) {
+                            if (op_edges[k].d1 == this.polygons[i] || op_edges[k].d0 == this.polygons[i]){
                                 // Añadir los dos corners de manera inversa
                                 corners.push(op_edges[k].v1);
                                 corners.push(op_edges[k].v0);
@@ -136,9 +160,10 @@ class MapGraph{
                         cornersReady.push(true);
                     }
                     // SI NO fue inicializado
-                    if (!this.polygons[tmp_edge.rSite.voronoiId].processed){
+                    else {
                         let corner = new MapCorner(); // Se crea un nuevo Corner
-                        corner.setPosition(tmp_edge.va.x, tmp_edge.va.y); // Se setea la posicion al corner
+                        corner.setPosition(rightVertex.x, rightVertex.y); // Se setea la posicion al corner
+                        corners.push(corner);
                         // Se añade el Edge creado al arreglo general
                         this.corners.push(corner); // Se añade el Edge creado al arreglo genera
                         cornersReady.push(false); // Se añade el Edge creado al arreglo general
@@ -153,6 +178,9 @@ class MapGraph{
                 // SI el actual fue inicializado y el siguiente no
                 if (edgesReady[j] && !(edgesReady[(j+1)%heLength]) ) {
                     // Al corner+1 se le enlaza el edge siguiente
+                    //console.log(j);
+                    //console.log(heLength);
+                    //console.log(corners);
                     corners[(j+1)%heLength].protrodes.push(edges[(j+1)%heLength]);
                     // Al corner+1 se le enlaza el corner+2
                     corners[(j+1)%heLength].adjent.push(corners[(j+2)%heLength]);
@@ -174,17 +202,19 @@ class MapGraph{
                 // SI NO fue inicializado
                 if (!cornersReady[j]){
                     // Se conectan los tres centers a touches del corner actual
+                    //console.log(j);
+                    //console.log(corners);
                     corners[j].touches.push(this.polygons[i]);
                     let hedge = cell.halfedges[j];
-                    let tmp_edge = hedge.edge;
-                    if (tmp_edge.rSite != null) {
-                        corners[j].touches.push(this.polygons[tmp_edge.rSite.voronoiId]);
+                    let {rigthSite, rightVertex} = this.getRight(hedge);
+                    if (rigthSite != null) {
+                        corners[j].touches.push(this.polygons[rigthSite.voronoiId]);
                     }
                     let idxPrev = (j+ heLength-1)%heLength;
                     let hedgePrev = cell.halfedges[idxPrev];
-                    let tmp_edgePrev = hedgePrev.edge;
-                    if (tmp_edgePrev.rSite != null) {
-                        corners[j].touches.push(this.polygons[tmp_edgePrev.rSite.voronoiId]);
+                    let {rigthSitePrev, rightVertexPrev} = this.getRight(hedge);
+                    if (rigthSitePrev != null) {
+                        corners[j].touches.push(this.polygons[rigthSitePrev.voronoiId]);
                     }
                     // Se conecta el Edge posterior a protrodes del corner actual
                     corners[j].protrodes.push(edges[j]);
@@ -196,6 +226,12 @@ class MapGraph{
                     corners[j].adjent.push(this.corners[idxPrev]);
                 }
             }
+            this.polygons[i].neighbors = centers;
+            this.polygons[i].borders = edges;
+            this.polygons[i].corners = corners;
+            //console.log("End ");
+            //console.log(this.polygons[i]);
+            this.polygons[i].processed = true;
 
         }
     }
