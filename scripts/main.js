@@ -6,12 +6,14 @@ import {VoronoiGenerator} from './voronoiGenerator.js'
 import * as MAP from './mapGraph.js'
 
 function genPoints(minX, maxX, minY, maxY, zCoord) {
-    const particles = 1000; // Number of points
+    const particles = 10000; // Number of points
     let width = maxX - minX;
     let height = maxY - minY;
 
-    let voronoiGen = new VoronoiGenerator(width, height, zCoord, particles);
-    voronoiGen.relaxate(20);
+    let seed = 10240;
+
+    let voronoiGen = new VoronoiGenerator(width, height, zCoord, particles, seed);
+    voronoiGen.relaxate(25);
     //console.log(voronoiGen.diagram.edges.length);
 
     let mGraph = new MAP.MapGraph(voronoiGen.diagram, voronoiGen.sites);

@@ -1,11 +1,13 @@
 import {Voronoi} from './rhill-voronoi-core.js'
+import  'https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js'
 
 export class VoronoiGenerator {
-    constructor(width, height, zCoord, points) {
+    constructor(width, height, zCoord, points, seed) {
         this.voronoi = new Voronoi();
         this.bBox = {xl: -width/2, xr: width/2, yt: -height/2, yb: height/2};
         this.sites = [];
         this.z = zCoord;
+        this.myrng = new Math.seedrandom(seed);
         this.randomSites(points);
         this.diagram = this.voronoi.compute(this.sites, this.bBox);
     }
@@ -16,8 +18,8 @@ export class VoronoiGenerator {
         let width = this.bBox.xr - this.bBox.xl;
         let height = this.bBox.yb - this.bBox.yt;
         for (let i = 0; i < n; i++) {
-            let x_point = this.bBox.xl + Math.random() * width;
-            let y_point = this.bBox.yt + Math.random() * height;
+            let x_point = this.bBox.xl + this.myrng() * width;
+            let y_point = this.bBox.yt + this.myrng() * height;
             sites.push({x: x_point, y:y_point});
         }
         this.sites = sites;
