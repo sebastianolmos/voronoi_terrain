@@ -5,25 +5,63 @@ import {Voronoi} from './rhill-voronoi-core.js'
 import {VoronoiGenerator} from './voronoiGenerator.js'
 import * as MAP from './mapGraph.js'
 
-function genPoints(minX, maxX, minY, maxY, zCoord) {
-    const particles = 1000; // Number of points
-    let width = maxX - minX;
-    let height = maxY - minY;
+const POINTS = 1000;
+const WORLD_WIDTH = 7;
+const WORLD_HEIGHT = 7;
+const WORLD_Z = 0;
+const VORONOI_RELAXATION = 25;
 
-    let seed = 10240;
+let seed = 10240;
+let mGraph = null;
 
-    let voronoiGen = new VoronoiGenerator(width, height, zCoord, particles, seed);
-    voronoiGen.relaxate(25);
-    //console.log(voronoiGen.diagram.edges.length);
-
-    let mGraph = new MAP.MapGraph(voronoiGen.diagram, voronoiGen.sites);
+function genMapGraph() {
+    let voronoiGen = new VoronoiGenerator(WORLD_WIDTH, WORLD_HEIGHT, WORLD_Z, POINTS, seed);
+    voronoiGen.relaxate(VORONOI_RELAXATION);
+    mGraph = new MAP.MapGraph(voronoiGen.diagram, voronoiGen.sites);
     mGraph.build();
-    console.log(mGraph.polygons);
-    console.log(mGraph.edges);
-    console.log(mGraph.corners);
+}
+
+function genTerrain() {
+    const positions = [];
+    const colors = [];
+    const indices = [];
+    let indexCount = 0;
+    for (let i = 0; i < mGraph.polygons.length; i++){
+        let randColor = {r: Math.random(), g: Math.random(), b: Math.random()};
+        let poly = mGraph.polygons[i];
+        let polyLen = poly.corners.length;
+        for(let j = 0; j < polyLen; j++) {
+            positions.push(poly.corners[j].x, poly.corners[j].y, WORLD_Z);
+            colors.push(randColor.r, randColor.g, randColor.b);
+            indices.push(indexCount + j, indexCount + (j+1)%polyLen, indexCount + polyLen);
+        }
+        positions.push(poly.x, poly.y, WORLD_Z);
+        colors.push(randColor.r, randColor.g, randColor.b);
+        indexCount += polyLen + 1;
+    }
+    const terrainGeometry = new THREE.BufferGeometry();
+    const positionNumComponents = 3;
+    const colorNumComponents = 3;
+    terrainGeometry.setAttribute(
+        'position',
+        new THREE.BufferAttribute(new Float32Array(positions), positionNumComponents));
+    terrainGeometry.setAttribute(
+        'color',
+        new THREE.BufferAttribute(new Float32Array(colors), colorNumComponents));
+    terrainGeometry.setIndex(indices);
+    const terrainMaterial = new THREE.MeshBasicMaterial({vertexColors: THREE.VertexColors, side: THREE.BackSide});
+    const terrainMesh = new THREE.Mesh(terrainGeometry, terrainMaterial);
+    return terrainMesh;
+}
+
+function genPoints() {
+    let zCoord = WORLD_Z + 0.001;
 
     let pointsGeometry = new THREE.BufferGeometry();
-    const vCenters = voronoiGen.getCenters();
+    let vCenters = [];
+    for (let i = 0; i < mGraph.polygons.length; i++){
+        vCenters.push(mGraph.polygons[i].x, mGraph.polygons[i].y, zCoord);
+    }
     // Create the geometry of the points
     pointsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vCenters, 3));
     pointsGeometry.computeBoundingSphere();
@@ -92,19 +130,8 @@ function genPoints(minX, maxX, minY, maxY, zCoord) {
 function main() {
     // Create GUI Object
     const gui = new dat.GUI();
-    const world = {
-        plane: {
-            width: 7,
-            height: 7
-        }
-    };
-    gui.add(world.plane, "width", 1, 20).onChange(generatePlane);
-    gui.add(world.plane, "height", 1, 20).onChange(generatePlane);
-    
-    function generatePlane() {
-        planeMesh.geometry.dispose()
-        planeMesh.geometry = new THREE.PlaneGeometry(world.plane.width, world.plane.height, 10, 10)
-    }
+
+    genMapGraph();
     
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(
@@ -127,14 +154,17 @@ function main() {
     camera.rotation.set(0, 0, 0);
     console.log(camera);
     
-    const planeGeometry = new THREE.PlaneGeometry(world.plane.width, world.plane.height, 10, 10);
+    const planeGeometry = new THREE.PlaneGeometry(WORLD_WIDTH, WORLD_HEIGHT, 10, 10);
     const planeMaterial = new THREE.MeshBasicMaterial({ 
         color: 0x777777,
         side: THREE.DoubleSide});
     const planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
-    scene.add(planeMesh);
+    //scene.add(planeMesh);
 
-    let {points, lines, delaunay, voronoi} = genPoints(-world.plane.width/2, world.plane.width/2, -world.plane.height/2, world.plane.height/2, 0.001);
+    let terrain = genTerrain();
+    scene.add(terrain);
+
+    let {points, lines, delaunay, voronoi} = genPoints();
     scene.add(points);
     scene.add(lines);
     scene.add(delaunay);
