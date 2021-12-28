@@ -7,6 +7,8 @@ export class MapCenter {
         this.y = 0;
         this.processed = false;
         this.water = false;
+        this.ocean = false;
+        this.coast = false;
     }
 
     setPosition(x, y) {
@@ -32,6 +34,8 @@ export class MapCorner {
         this.x = 0;
         this.y = 0;
         this.water = false;
+        this.ocean = false;
+        this.coast = false;
     }
 
     setPosition(x, y) {
@@ -235,6 +239,61 @@ export class MapGraph{
             //console.log(this.polygons[i]);
             this.polygons[i].processed = true;
 
+        }
+    }
+
+    searchCenterInBorder() {
+        // Busca un nodo que sea oceano y que este en el borde
+        let poly = null;
+        for (let i = 0; i < this.polygons.length; i++){
+            poly = this.polygons[i];
+            if (poly.water) {
+                for (let j = 0; j < poly.borders.length; j++) {
+                    if (poly.borders[j].d0 == null || poly.borders[j].d1) {
+                        return poly;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    markCenters() {
+        // Busca un nodo que sea oceano y que este en el borde
+        let poly = this.searchCenterInBorder();
+
+        // Se crea un stack y se añade el poligono inicial
+        let stack = [];
+        let explored = new Set();
+        stack.push(poly);
+
+        // Se marca el primer poligono como explorado y como oceano
+        explored.add(poly);
+        poly.ocean = true;
+        
+        // Se continua mientras el stack no este vacio
+        while (stack.length > 0) {
+            let center = stack.pop();
+
+            center.neighbors
+            .filter(n => (n.water && !explored.has(n)) )
+            .forEach(n => {
+                explored.add(n);
+                stack.push(n);
+                n.ocean = true;
+            });
+        }
+
+        for (let i = 0; i < this.polygons.length; i++){
+            let tmp_center = this.polygons[i];
+            if (!tmp_center.water) {
+                for (let j = 0; j < tmp_center.neighbors.length; j++) {
+                    if (tmp_center.neighbors[j].ocean){
+                        tmp_center.coast = true;
+                        break;
+                    }
+                }
+            }
         }
     }
 }

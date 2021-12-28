@@ -6,7 +6,7 @@ import {VoronoiGenerator} from './voronoiGenerator.js'
 import * as MAP from './mapGraph.js'
 import {genNoise} from './noiseGenerator.js'
 
-const POINTS = 4096;
+const POINTS = 1000;
 const WORLD_WIDTH = 7;
 const WORLD_HEIGHT = 7;
 const WORLD_Z = 0;
@@ -20,7 +20,7 @@ const NOISE_RADIUS = 0.263;
 let seed = 10240;
 let mGraph = null;
 // Perlin noise parameters
-let noiseSeed = 0.186;
+let noiseSeed = 0.286;
 let noiseScale = 7.604;
 
 function genMapGraph() {
@@ -52,6 +52,7 @@ function genMapGraph() {
             }
         }
     }
+    mGraph.markCenters();
 }
 
 function genTerrain() {
@@ -61,10 +62,13 @@ function genTerrain() {
     let indexCount = 0;
     for (let i = 0; i < mGraph.polygons.length; i++){
         let poly = mGraph.polygons[i];
-        let polyColor = {r: 0.0, g: 0.5, b: 1.0};
+        let polyColor = {r: 0.2, g: 0.3, b: 1.0};
         if (!poly.water) {
             polyColor = {r: 0.5, g: 0.3, b: 0.2};
-        }
+        } 
+        else if (!poly.ocean) {
+            polyColor = {r: 0.0, g: 0.8, b: 1.0};
+        } 
         let polyLen = poly.corners.length;
         for(let j = 0; j < polyLen; j++) {
             positions.push(poly.corners[j].x, poly.corners[j].y, WORLD_Z);
