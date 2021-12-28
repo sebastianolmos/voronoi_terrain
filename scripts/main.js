@@ -4,21 +4,54 @@ import * as dat from 'https://cdn.skypack.dev/dat.gui'
 import {Voronoi} from './rhill-voronoi-core.js'
 import {VoronoiGenerator} from './voronoiGenerator.js'
 import * as MAP from './mapGraph.js'
+import {genNoise} from './noiseGenerator.js'
 
-const POINTS = 1000;
+const POINTS = 4096;
 const WORLD_WIDTH = 7;
 const WORLD_HEIGHT = 7;
 const WORLD_Z = 0;
 const VORONOI_RELAXATION = 25;
+// Perlin noise constants
+const NOISE_SIZE = 512;
+const NOISE_DRAW_HEIGHT = 0.001;
+const NOISE_GRADIENT_VALUE = 0.42;
+const NOISE_RADIUS = 0.263;
 
 let seed = 10240;
 let mGraph = null;
+// Perlin noise parameters
+let noiseSeed = 0.186;
+let noiseScale = 7.604;
 
 function genMapGraph() {
     let voronoiGen = new VoronoiGenerator(WORLD_WIDTH, WORLD_HEIGHT, WORLD_Z, POINTS, seed);
     voronoiGen.relaxate(VORONOI_RELAXATION);
     mGraph = new MAP.MapGraph(voronoiGen.diagram, voronoiGen.sites);
     mGraph.build();
+
+    
+    let noiseImg = genNoise(NOISE_SIZE, noiseSeed, NOISE_DRAW_HEIGHT, NOISE_GRADIENT_VALUE, NOISE_RADIUS, noiseScale);
+
+    for (let i = 0; i < mGraph.corners.length; i++) {
+        let corner =  mGraph.corners[i];
+        let x =  Math.floor((corner.x + WORLD_WIDTH/2) * NOISE_SIZE/WORLD_WIDTH);
+        let y =  Math.floor((corner.y + WORLD_HEIGHT/2) * NOISE_SIZE/WORLD_HEIGHT);
+        let cell = (x + y * NOISE_SIZE);
+        if (noiseImg[cell] == 0) {
+            corner.water = true;
+        }
+    }
+
+    for (let i = 0; i < mGraph.polygons.length; i++) {
+        let poly =  mGraph.polygons[i];
+        
+        for (let j = 0; j < poly.corners.length; j++) {
+            if ( poly.corners[j].water){
+                poly.water = true;
+                break;
+            }
+        }
+    }
 }
 
 function genTerrain() {
@@ -27,16 +60,19 @@ function genTerrain() {
     const indices = [];
     let indexCount = 0;
     for (let i = 0; i < mGraph.polygons.length; i++){
-        let randColor = {r: Math.random(), g: Math.random(), b: Math.random()};
         let poly = mGraph.polygons[i];
+        let polyColor = {r: 0.0, g: 0.5, b: 1.0};
+        if (!poly.water) {
+            polyColor = {r: 0.5, g: 0.3, b: 0.2};
+        }
         let polyLen = poly.corners.length;
         for(let j = 0; j < polyLen; j++) {
             positions.push(poly.corners[j].x, poly.corners[j].y, WORLD_Z);
-            colors.push(randColor.r, randColor.g, randColor.b);
+            colors.push(polyColor.r, polyColor.g, polyColor.b);
             indices.push(indexCount + j, indexCount + (j+1)%polyLen, indexCount + polyLen);
         }
         positions.push(poly.x, poly.y, WORLD_Z);
-        colors.push(randColor.r, randColor.g, randColor.b);
+        colors.push(polyColor.r, polyColor.g, polyColor.b);
         indexCount += polyLen + 1;
     }
     const terrainGeometry = new THREE.BufferGeometry();
@@ -163,12 +199,6 @@ function main() {
 
     let terrain = genTerrain();
     scene.add(terrain);
-
-    let {points, lines, delaunay, voronoi} = genPoints();
-    scene.add(points);
-    scene.add(lines);
-    scene.add(delaunay);
-    scene.add(voronoi);
     
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(0, 0, 1);

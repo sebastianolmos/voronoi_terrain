@@ -6,6 +6,7 @@ export class MapCenter {
         this.x = 0;
         this.y = 0;
         this.processed = false;
+        this.water = false;
     }
 
     setPosition(x, y) {
@@ -30,6 +31,7 @@ export class MapCorner {
         this.adjent = [];
         this.x = 0;
         this.y = 0;
+        this.water = false;
     }
 
     setPosition(x, y) {
