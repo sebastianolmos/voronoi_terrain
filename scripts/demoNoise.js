@@ -1,8 +1,8 @@
 import {module as noise} from './perlin.js'
 
 let canvas = document.getElementsByTagName('canvas')[0];
-canvas.width = 768;
-canvas.height = 768;
+canvas.width = 512;
+canvas.height = 512;
 let ctx = canvas.getContext('2d');
 
 // Parameters
@@ -10,7 +10,7 @@ let seed = 2,
 	drawheight = 0.01,
 	gradValue = 1.0,
 	radius = 0.5,
-	noiseScale = 100;
+	noiseScale = 7.6;
 
 function updateCanvas() {
 	ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -23,12 +23,13 @@ function updateCanvas() {
   	for (var x = 0; x < canvas.width; x++) {
     	for (var y = 0; y < canvas.height; y++) {
 			let value;
-      		value = (noise.perlin2(x / noiseScale, y / noiseScale) + 1) /2;
+			let noiseValue = canvas.width / noiseScale;
+      		value = (noise.perlin2(x / noiseValue, y / noiseValue) + 1) /2;
       		var dx = center_x - x,
           		dy = center_y - y;   
       		var dist = Math.sqrt(dx*dx +dy*dy); 
-      		var c_value = (dist /(canvas.width * radius)) * gradValue;
-			value -= c_value;
+      		let c_value = (dist /(canvas.width * radius)) * gradValue;
+			value = Math.min(Math.max((value-c_value), 0.0), 1.0);
 			if (drawParts) {
 				if (value >= drawheight) {
 				value = 1;
@@ -95,10 +96,10 @@ rSlider.oninput = function() {
 
 let nsSlider = document.getElementById("noiseScaleSlider");
 let nsValue = document.getElementById("noiseScaleValue");
-nsValue.innerHTML = (nsSlider.value).toString(); // Display the default slider value
+nsValue.innerHTML = (nsSlider.value/100).toString(); // Display the default slider value
 // Update the current slider value (each time you drag the slider handle)
 nsSlider.oninput = function() {
-	noiseScale = this.value;
+	noiseScale = this.value /100;
 	nsValue.innerHTML = noiseScale.toString();
 	updateCanvas();
 }

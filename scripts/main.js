@@ -6,7 +6,7 @@ import {VoronoiGenerator} from './voronoiGenerator.js'
 import * as MAP from './mapGraph.js'
 
 function genPoints(minX, maxX, minY, maxY, zCoord) {
-    const particles = 10000; // Number of points
+    const particles = 1000; // Number of points
     let width = maxX - minX;
     let height = maxY - minY;
 
