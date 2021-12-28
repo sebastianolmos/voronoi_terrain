@@ -20,14 +20,14 @@ function updateCanvas() {
   	let center_x = canvas.width/2;
   	let center_y = canvas.height/2;
   	let drawParts  = true;
-  	for (var x = 0; x < canvas.width; x++) {
-    	for (var y = 0; y < canvas.height; y++) {
+  	for (let x = 0; x < canvas.width; x++) {
+    	for (let y = 0; y < canvas.height; y++) {
 			let value;
 			let noiseValue = canvas.width / noiseScale;
       		value = (noise.perlin2(x / noiseValue, y / noiseValue) + 1) /2;
-      		var dx = center_x - x,
+      		let dx = center_x - x,
           		dy = center_y - y;   
-      		var dist = Math.sqrt(dx*dx +dy*dy); 
+			let dist = Math.sqrt(dx*dx +dy*dy); 
       		let c_value = (dist /(canvas.width * radius)) * gradValue;
 			value = Math.min(Math.max((value-c_value), 0.0), 1.0);
 			if (drawParts) {
@@ -38,7 +38,7 @@ function updateCanvas() {
 				}
 			}
 			value *= 256;
-			var cell = (x + y * canvas.width) * 4;
+			let cell = (x + y * canvas.width) * 4;
 			data[cell] = value;
 			data[cell+1] = value;
 			data[cell+2] = value;
