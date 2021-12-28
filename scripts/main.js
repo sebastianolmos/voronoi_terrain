@@ -53,6 +53,7 @@ function genMapGraph() {
         }
     }
     mGraph.markCenters();
+    mGraph.markCorners();
 }
 
 function genTerrain() {

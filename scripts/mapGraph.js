@@ -296,4 +296,30 @@ export class MapGraph{
             }
         }
     }
+
+    markCorners() {
+        for (let i = 0; i < this.corners.length; i++){
+            let ocean = true;  // indica si el corner esta rodeado de puros polygon ocean
+            let aOcean = false; // indica si el corner esta rodeado de al menos 1 polygon ocean
+            let aLand = false;  // indica si el corner esta rodeado de al menos 1 polygon land = !water
+            let water = true;  // indica si el corner esta rodeado de puros polygon water
+
+            let corner = this.corners[i];
+            for (let j = 0; j < corner.touches.length; j++) {
+                if (corner.touches[j].ocean){
+                    aOcean = true;
+                } else {
+                    ocean = false;
+                }
+
+                if (!corner.touches[j].water){
+                    water = false;
+                    aLand = true;
+                } 
+            }
+            corner.ocean = ocean;
+            corner.coast = aOcean && aLand;
+            corner.water = water;
+        }
+    }
 }
