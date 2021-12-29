@@ -9,6 +9,9 @@ export class MapCenter {
         this.water = false;
         this.ocean = false;
         this.coast = false;
+        this.elevation = 0;
+        this.downSlope = null;
+        this.normal = {x: 0.0, y: 0.0, z: 1.0};
     }
 
     setPosition(x, y) {
@@ -36,12 +39,16 @@ export class MapCorner {
         this.water = false;
         this.ocean = false;
         this.coast = false;
+        this.elevation = 0;
+        this.downSlope = null;
+        this.normal = {x: 0.0, y: 0.0, z: 1.0};
     }
 
     setPosition(x, y) {
         this.x = x;
         this.y = y;
     }
+
 }
 
 export class MapGraph{
@@ -51,6 +58,7 @@ export class MapGraph{
         this.corners = [];
         this.diagram = diagram;
         this.sites = sites;
+        this.maxHeight = 0;
     }
 
     buildCenters(){
@@ -65,15 +73,38 @@ export class MapGraph{
     }
 
     getRight(halfEdge) {
-        if (halfEdge.site.voronoiId == halfEdge.edge.lSite.voronoiId) {
-            return {
-                rigthSite: halfEdge.edge.rSite,
-                rightVertex: halfEdge.edge.va
-            };
+        //console.log("HF GET_R",  halfEdge);
+        if (halfEdge.edge.lSite != null) {
+            if (halfEdge.site.voronoiId == halfEdge.edge.lSite.voronoiId) {
+                //console.log("r site", halfEdge.edge.rSite);
+                return {
+                    rigthSite: halfEdge.edge.rSite,
+                    rightVertex: halfEdge.edge.va
+                };
+            } else {
+                //console.log("l site", halfEdge.edge.lSite);
+                return {
+                    rigthSite: halfEdge.edge.lSite,
+                    rightVertex: halfEdge.edge.vb
+                };
+            }
+        } else if (halfEdge.edge.rSite != null){
+            if (halfEdge.site.voronoiId == halfEdge.edge.rSite.voronoiId) {
+                //console.log("r site", halfEdge.edge.rSite);
+                return {
+                    rigthSite: halfEdge.edge.lSite,
+                    rightVertex: halfEdge.edge.vb
+                };
+            } else {
+                return {
+                    rigthSite: halfEdge.edge.rSite,
+                    rightVertex: halfEdge.edge.va
+                };
+            } 
         } else {
             return {
-                rigthSite: halfEdge.edge.lSite,
-                rightVertex: halfEdge.edge.vb
+                rigthSite: null,
+                rightVertex: null
             };
         }
     }
@@ -99,16 +130,17 @@ export class MapGraph{
             for (let j = 0; j < heLength; j++) {
                 //console.log("   halfedge ", j);
                 let hedge = cell.halfedges[j];
+                let  currentRight = this.getRight(hedge);
                 let {rigthSite, rightVertex} = this.getRight(hedge);
 
                 // Procesamiento de edges
                 
                 // SI ya fue inicializado
-                if (rigthSite != null &&  
-                    this.polygons[rigthSite.voronoiId].processed) 
+                if (currentRight.rigthSite != null &&  
+                    this.polygons[currentRight.rigthSite.voronoiId].processed) 
                 {
                     //console.log("   cell inited");
-                    let op_edges = this.polygons[rigthSite.voronoiId].borders;
+                    let op_edges = this.polygons[currentRight.rigthSite.voronoiId].borders;
                     //console.log(op_edges);
                     // Recorrer los halfedges del poligono opuesto y encontrar el halfedge opuesto:
                     for (let k = 0; k < op_edges.length; k++) {
@@ -118,7 +150,7 @@ export class MapGraph{
                             //console.log("----> Edge Founded");
                         }
                     }
-                    centers.push(this.polygons[rigthSite.voronoiId])
+                    centers.push(this.polygons[currentRight.rigthSite.voronoiId])
                     edgesReady.push(true);
                 }
                 
@@ -126,9 +158,9 @@ export class MapGraph{
                 else {
                     let edge = new MapEdge(); // Se crea un nuevo Edge
                     edge.d0 = this.polygons[i];  // Se conectan d0 y d1 al Edge
-                    if (rigthSite != null) {
-                        edge.d1 = this.polygons[rigthSite.voronoiId];
-                        centers.push(this.polygons[rigthSite.voronoiId]); // Se conectan un neighbor al center actual
+                    if (currentRight.rigthSite != null) {
+                        edge.d1 = this.polygons[currentRight.rigthSite.voronoiId];
+                        centers.push(this.polygons[currentRight.rigthSite.voronoiId]); // Se conectan un neighbor al center actual
                     }
                     edges.push(edge); // Añadir el Edge creado
                     this.edges.push(edge); // Se añade el Edge creado al arreglo genera
@@ -137,44 +169,52 @@ export class MapGraph{
                 // -------------------------->
                 // Procesamiento de corners
 
-                // SI el anterior fue inicializado:
-                if (prevReady) {
-                    // Setear a que no fue inicializado
-                    prevReady = false;
-                    cornersReady.push(true);
+                // Se revisa si el poligono actual del corner ya se proceso (v1)
+                if (currentRight.rigthSite != null &&  
+                    this.polygons[currentRight.rigthSite.voronoiId].processed) 
+                {   
+                    //console.log(this.polygons[i]);
+                    //console.log("console", cell);
+                    //console.log(j, corners);
+                    let op_edges = this.polygons[currentRight.rigthSite.voronoiId].borders;
+                    for (let k = 0; k < op_edges.length; k++) {
+                        if (op_edges[k].d1 == this.polygons[i] || op_edges[k].d0 == this.polygons[i]){
+                            corners.push(op_edges[k].v1);
+                            //console.log("AA");
+                            
+                            // Se revisa si el sgt corner le corresponde un center inicializado
+                            let nextHedge = cell.halfedges[(j+1)%heLength];
+                            let nRigth = this.getRight(nextHedge);
+                            
+                            if (nRigth.rigthSite != null &&  
+                                !this.polygons[nRigth.rigthSite.voronoiId].processed) 
+                            {
+                                //console.log("AA", this.polygons[nRigth.rigthSite.voronoiId].processed);
+                                corners.push(op_edges[k].v0);
+                                prevReady = true;
+                            } else {
+                                prevReady = false;
+                            }
+                            cornersReady.push(2);
+                            break;
+                        }
+                    }
+                }
+                // SI NO fue inicializado
+                else if (!prevReady){
+                    let corner = new MapCorner(); // Se crea un nuevo Corner
+                    corner.setPosition(currentRight.rightVertex.x, currentRight.rightVertex.y); // Se setea la posicion al corner
+                    corners.push(corner);
+                    // Se añade el Edge creado al arreglo general
+                    this.corners.push(corner); // Se añade el Edge creado al arreglo genera
+                    cornersReady.push(0); // Se añade el Edge creado al arreglo general
                 }
                 else {
-                // Si el anterior no fue inicializado:
-                    // SI ya fue inicializado este corner 
-                    if (rigthSite != null &&  
-                        this.polygons[rigthSite.voronoiId].processed) 
-                    {   
-                        let op_edges = this.polygons[rigthSite.voronoiId].borders;
-                        //console.log("Here");
-                        //console.log(this.polygons[i] );
-                        //console.log(op_edges);
-                        // Recorrer los halfedges del poligono opuesto y encontrar el halfedge opuesto:
-                        for (let k = 0; k < op_edges.length; k++) {
-                            if (op_edges[k].d1 == this.polygons[i] || op_edges[k].d0 == this.polygons[i]){
-                                // Añadir los dos corners de manera inversa
-                                corners.push(op_edges[k].v1);
-                                corners.push(op_edges[k].v0);
-                                // Setear que el anterior fue inicializado
-                                prevReady = true;
-                            }
-                        }
-                        cornersReady.push(true);
-                    }
-                    // SI NO fue inicializado
-                    else {
-                        let corner = new MapCorner(); // Se crea un nuevo Corner
-                        corner.setPosition(rightVertex.x, rightVertex.y); // Se setea la posicion al corner
-                        corners.push(corner);
-                        // Se añade el Edge creado al arreglo general
-                        this.corners.push(corner); // Se añade el Edge creado al arreglo genera
-                        cornersReady.push(false); // Se añade el Edge creado al arreglo general
-                    }
+                    prevReady = false;
+                    cornersReady.push(1);
                 }
+
+                // ----------------------------->
             }
 
             // Segunda pasada
@@ -182,16 +222,7 @@ export class MapGraph{
                 // Procesamiento de edges
 
                 // SI el actual fue inicializado y el siguiente no
-                if (edgesReady[j] && !(edgesReady[(j+1)%heLength]) ) {
-                    // Al corner+1 se le enlaza el edge siguiente
-                    //console.log(j);
-                    //console.log(heLength);
-                    //console.log(corners);
-                    corners[(j+1)%heLength].protrodes.push(edges[(j+1)%heLength]);
-                    // Al corner+1 se le enlaza el corner+2
-                    corners[(j+1)%heLength].adjent.push(corners[(j+2)%heLength]);
-                }
-                else if(!edgesReady[j]){
+                if(!edgesReady[j]){
                     // SI NO fue inicializado
 
                     // Se añade al edge los corner v0 y v1
@@ -202,25 +233,45 @@ export class MapGraph{
 
                 // -------------------------->
                 // Procesamiento de corners
-
+                
+                let idxPrev = (j+ heLength-1)%heLength;
                 // SI ya fue inicializado
-
-                // SI NO fue inicializado
-                if (!cornersReady[j]){
+                if (cornersReady[j] == 2) {
+                    let tent_edge = edges[idxPrev];
+                    let tent_corner = corners[idxPrev];
+                    if (!(corners[j].protrodes.includes(tent_edge))){
+                        corners[j].protrodes.push(tent_edge);
+                    }
+                    if (!(corners[j].adjent.includes(tent_corner))){
+                        corners[j].adjent.push(tent_corner);
+                    }
+                    let nextIdx = (j+1)%heLength;
+                    tent_edge = edges[j];
+                    tent_corner = corners[nextIdx];
+                    if (!(corners[j].protrodes.includes(tent_edge))){
+                        corners[j].protrodes.push(tent_edge);
+                    }
+                    if (!(corners[j].adjent.includes(tent_corner))){
+                        corners[j].adjent.push(tent_corner);
+                    }
+                }
+                else if (cornersReady[j] == 0){
+                    // SI NO fue inicializado
                     // Se conectan los tres centers a touches del corner actual
                     //console.log(j);
                     //console.log(corners);
+                    //console.log("init", corners[j].touches.length, corners[j].protrodes.length, corners[j].adjent.length);
                     corners[j].touches.push(this.polygons[i]);
                     let hedge = cell.halfedges[j];
-                    let {rigthSite, rightVertex} = this.getRight(hedge);
-                    if (rigthSite != null) {
-                        corners[j].touches.push(this.polygons[rigthSite.voronoiId]);
+                    let currentRight = this.getRight(hedge);
+                    if (currentRight.rigthSite != null) {
+                        corners[j].touches.push(this.polygons[currentRight.rigthSite.voronoiId]);
                     }
-                    let idxPrev = (j+ heLength-1)%heLength;
                     let hedgePrev = cell.halfedges[idxPrev];
-                    let {rigthSitePrev, rightVertexPrev} = this.getRight(hedge);
-                    if (rigthSitePrev != null) {
-                        corners[j].touches.push(this.polygons[rigthSitePrev.voronoiId]);
+                    let prevRigth = this.getRight(hedgePrev);
+                    //console.log(prevRigth.rigthSite);
+                    if (prevRigth.rigthSite != null) {
+                        corners[j].touches.push(this.polygons[prevRigth.rigthSite.voronoiId]);
                     }
                     // Se conecta el Edge posterior a protrodes del corner actual
                     corners[j].protrodes.push(edges[j]);
@@ -230,6 +281,8 @@ export class MapGraph{
                     corners[j].adjent.push(this.corners[(j+1)%heLength]);
                     // Se conecta el corner anterior a adjent del corner actual
                     corners[j].adjent.push(this.corners[idxPrev]);
+                    //console.log(corners[j])
+                    //console.log("end", corners[j].touches.length, corners[j].protrodes.length, corners[j].adjent.length);
                 }
             }
             this.polygons[i].neighbors = centers;
@@ -305,6 +358,12 @@ export class MapGraph{
             let water = true;  // indica si el corner esta rodeado de puros polygon water
 
             let corner = this.corners[i];
+            corner.ocean = false;
+            corner.coast = false;
+            corner.elevation = 0;
+            corner.downSlope = null;
+            corner.normal = {x: 0.0, y: 0.0, z: 1.0};
+
             for (let j = 0; j < corner.touches.length; j++) {
                 if (corner.touches[j].ocean){
                     aOcean = true;
@@ -317,9 +376,153 @@ export class MapGraph{
                     aLand = true;
                 } 
             }
+            
             corner.ocean = ocean;
             corner.coast = aOcean && aLand;
             corner.water = water;
+            //if (!corner.ocean) {
+            //    corner.elevation = 3;
+            //}
         }
     }
+
+    getCoastCorners() {
+        let coasts = [];
+        for (let i = 0; i < this.corners.length; i++){
+            if (this.corners[i].coast){
+                coasts.push(this.corners[i]);  
+            }
+            if (!this.corners[i].ocean){
+
+                this.corners[i].elevation = 10;
+            }
+            console.log(this.corners[i]); 
+        } 
+        return coasts;
+    }
+
+    getCoastCenters() {
+        let centers = [];
+        for (let i = 0; i < this.polygons.length; i++){
+            if (this.polygons[i].coast){
+                centers.push(this.polygons[i]);  
+            }
+            //console.log(this.corners[i]); 
+            if (!this.polygons[i].ocean) {
+                this.polygons[i].elevation = 10;
+            }
+        } 
+        return centers;
+    }
+
+
+    setElevations2() {
+        let queue = this.getCoastCorners();
+        let explored = new Set();
+        queue.forEach(n => {
+            n.elevation = 0;
+            explored.add(n);
+        });
+
+        while (queue.length > 0) {
+            let corner = queue.shift();
+
+            corner.adjent
+            .filter(n => (!n.ocean && !explored.has(n)) )
+            .forEach(n => {
+                let newH = corner.elevation +1 *0.1;
+                console.log(newH, n.elevation);
+                if (newH <= n.elevation){
+                    n.elevation = newH;
+                    n.downSlope = corner;
+                }
+                explored.add(n);
+                queue.push(n);
+            });
+        }
+        for (let i = 0; i < this.polygons.length; i++){
+            let poly = this.polygons[i];
+            let polyLen = poly.corners.length;
+            if (!poly.ocean && polyLen > 0){
+                let sum = 0;
+                for (let j = 0; j < polyLen; j++) {
+                    sum += poly.corners[j].elevation;
+                }
+                poly.elevation = sum / polyLen;        
+            }
+        }
+
+    }
+
+    setElevations(increase) {
+        let queue = this.getCoastCenters();
+        let explored = new Set();
+        queue.forEach(n => {
+            n.elevation = 0;
+            explored.add(n);
+        });
+
+        while (queue.length > 0) {
+            let center = queue.shift();
+
+            center.neighbors
+            .filter(n => (!n.ocean && !explored.has(n)) )
+            .forEach(n => {
+                let newH;
+                if (n.water){
+                    newH = center.elevation;
+                } else {
+                    newH = center.elevation + (1 *increase);
+                }
+                //console.log(newH, n.elevation);
+                if (newH <= n.elevation){
+                    n.elevation = newH;
+                    n.downSlope = center;
+                }
+                explored.add(n);
+                queue.push(n);
+            });
+        }
+        for (let i = 0; i < this.corners.length; i++){
+            let corner = this.corners[i];
+            let cornerLen = corner.touches.length;
+            if (!corner.ocean && cornerLen > 0){
+                let sum = 0;
+                let sumVec = [0,0,0]
+                for (let j = 0; j < cornerLen; j++) {
+                    sum += corner.touches[j].elevation;
+                    sumVec[0] += corner.touches[j].x;
+                    sumVec[1] += corner.touches[j].y;
+                    sumVec[2] += corner.touches[j].elevation;
+                }
+                corner.elevation = sum / cornerLen;     
+                corner.normal = getNormalized(sumVec[0], sumVec[1], sumVec[2]);    
+            }
+        }
+        for (let i = 0; i < this.polygons.length; i++) {
+            let poly = this.polygons[i];
+            let polyLen = poly.neighbors.length;
+            if (!poly.ocean && polyLen > 0){
+                let sum = [0,0,0];
+                for (let j = 0; j < polyLen; j++) {
+                    sum[0] += poly.neighbors[j].x;
+                    sum[1] += poly.neighbors[j].y;
+                    sum[2] += poly.neighbors[j].elevation;
+                }
+                poly.normal = getNormalized(sum[0], sum[1], sum[2]);
+                if (poly.elevation > this.maxHeight){
+                    this.maxHeight = poly.elevation;
+                }        
+            }
+        }
+
+    }
+}
+
+function getNormalized(x, y, z) {
+    let mag = Math.sqrt(x*x + y*y + z*z);
+    return {
+        x: x/mag,
+        y: y/mag,
+        z: z/mag};
 }
